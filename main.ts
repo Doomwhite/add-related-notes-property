@@ -50,7 +50,9 @@ export default class MyPlugin extends Plugin {
 			let fileContent = await this.app.vault.read(file);
 
 			// Step 1: Find the YAML front matter (between ---)
-			const yamlStartIndex = fileContent.indexOf('---');
+			//const firstLine = fileContent.split('\n', 1)[0];
+			const firstLine = fileContent.split('\n', 1)[0];
+			const yamlStartIndex = firstLine.indexOf('---');
 			const yamlEndIndex = fileContent.indexOf('---', yamlStartIndex + 3);
 
 			// Case 1: No YAML front matter found
@@ -60,6 +62,11 @@ export default class MyPlugin extends Plugin {
 				// Case 2: YAML front matter found
 				await this.withYamlFrontMatter(fileContent, yamlStartIndex, yamlEndIndex, relatedNotesLink, file);
 			}
+		}
+
+		const subfolders = folder.children.filter((item) => item instanceof TFolder) as TFolder[];
+		for (const subfolder of subfolders) {
+			await this.addFilePropertyToFiles(subfolder); // Recursive call on each subfolder
 		}
 	}
 
@@ -113,8 +120,19 @@ export default class MyPlugin extends Plugin {
 		if (arrayStartIndex !== -1) {
 			console.log('related_notes is in array format');
 
+			const preArraySlice = yamlContent.slice(relatedNotesIndex, arrayStartIndex);
+
+			// Find the last newline in this slice and count spaces after it
+			const lastNewlineIndex = preArraySlice.lastIndexOf('\n');
+			const indentationCount = arrayStartIndex - (relatedNotesIndex + lastNewlineIndex + 1);
+			console.log('indentationCount:', indentationCount);
+
+			const indentation = ' '.repeat(indentationCount)
+			console.log('indentation:', indentation);
+
 			// Array format: add the new link as a new item in the list
-			const newYAML = `  - \"${relatedNotesLink}\"`;
+			const newYAML = indentation + `- \"${relatedNotesLink}\"`;
+			console.log('newYAML', newYAML);
 
 			const nextPropertyPattern = /\n\w+:/;
 			const nextPropertyMatch = yamlContent.slice(arrayStartIndex).search(nextPropertyPattern);
@@ -146,6 +164,7 @@ export default class MyPlugin extends Plugin {
 				+ '\n'
 				+ newYAML
 				+ '\n'
+				+ indentation
 				+ yamlContent.slice(arrayStartIndex)
 				+ '\n'
 				+ fileContent.slice(yamlEndIndex);
@@ -213,15 +232,58 @@ class FolderSelectionModal extends Modal {
 		contentEl.empty();
 		contentEl.createEl("h2", { text: "Select a Folder" });
 
-		// List the vault folders
-		const folders = this.app.vault.getAllFolders();
-		const list = contentEl.createEl("ul");
+		// Create a search input for filtering folders
+		const searchInput = contentEl.createEl("input", {
+			type: "text",
+			placeholder: "Search for a folder...",
+		});
 
-		folders.forEach((folder) => {
-			const li = list.createEl("li", { text: folder.path });
-			li.addEventListener("click", () => {
-				this.onSelect(folder);
-			});
+		// Style the search input
+		searchInput.style.width = "100%";
+		searchInput.style.padding = "8px";
+		searchInput.style.marginBottom = "10px";
+
+		const list = contentEl.createEl("ul");
+		list.style.minHeight = "200px";  // Set a max height to add a scroll if needed
+		list.style.maxHeight = "200px";  // Set a max height to add a scroll if needed
+		list.style.overflowY = "auto";   // Enable vertical scrolling
+		list.style.listStyleType = "none";
+		list.style.paddingLeft = "0";
+
+		// Get all folders and render the list
+		const folders = this.app.vault.getAllLoadedFiles()
+			.filter((file) => file instanceof TFolder) as TFolder[];
+
+		// Function to update the displayed list based on the search input
+		const updateList = (filterText: string) => {
+			list.empty();
+			folders
+				.filter(folder => folder.path.toLowerCase().includes(filterText.toLowerCase()))
+				.forEach(folder => {
+					const li = list.createEl("li");
+
+					// Style each list item
+					li.style.cursor = "pointer";
+					li.style.padding = "5px";
+					li.style.marginBottom = "5px";
+					li.style.textDecoration = "underline";
+					li.style.color = "#007acc";  // Optional: Change color to make it look more like a link
+
+					li.textContent = folder.path;
+					li.addEventListener("click", () => {
+						this.onSelect(folder);
+						this.close();
+					});
+				});
+		};
+
+		// Initial list render without filtering
+		updateList("");
+
+		// Add input event listener for real-time search filtering
+		searchInput.addEventListener("input", (event) => {
+			const filterText = (event.target as HTMLInputElement).value;
+			updateList(filterText);
 		});
 	}
 
