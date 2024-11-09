@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "add-related-notes-property",
+	"name": "Add related notes property to folders",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
+	"description": "Adds the related notes property to the selected folder by a command",
+	"author": "DooMWhite",
+	"authorUrl": "https://github.com/Doomwhite",
 	"fundingUrl": "https://obsidian.md/pricing",
 	"isDesktopOnly": false
 }
